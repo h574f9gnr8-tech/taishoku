@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>自衛官 退職金・若年給付金試算</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Zen+Old+Mincho:wght@700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: 支給調書を下敷きにした一枚の計算書。①共通 → ②比べる2ケース → 試算ボタン → 結果（要約→税金の説明→明細→支給予定）→ 根拠法令 */
+:root{
+  --ground:#f3f6f2; --sheet:#ffffff; --cell:#e3efe4; --rule:#9db8a3;
+  --ink:#1d2e24; --muted:#58705f; --accent:#1f6b43; --accent-ink:#ffffff; --red:#c2362c;
+  --warn-bg:#fbf1dc; --warn-fg:#7a5410; --ok-bg:#dff0e3; --ok-fg:#1f6b43; --no-bg:#f6e2df; --no-fg:#9c2b22;
+  --bar-free:#9fd0ae; --bar-tax:#e7a097;
+  --f-display:"Zen Old Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"BIZ UDPGothic","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#121a15;--sheet:#18221c;--cell:#203027;--rule:#3d5546;--ink:#e3ece5;--muted:#9bb2a2;--accent:#7fd0a1;--accent-ink:#0f1a13;--red:#f08a7e;
+  --warn-bg:#3a2f17;--warn-fg:#f0cf8a;--ok-bg:#1f3a2a;--ok-fg:#8fe0b0;--no-bg:#3d2220;--no-fg:#f3a79e;--bar-free:#3f7a55;--bar-tax:#8a4a43;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --ground:#121a15;--sheet:#18221c;--cell:#203027;--rule:#3d5546;--ink:#e3ece5;--muted:#9bb2a2;--accent:#7fd0a1;--accent-ink:#0f1a13;--red:#f08a7e;
+  --warn-bg:#3a2f17;--warn-fg:#f0cf8a;--ok-bg:#1f3a2a;--ok-fg:#8fe0b0;--no-bg:#3d2220;--no-fg:#f3a79e;--bar-free:#3f7a55;--bar-tax:#8a4a43;color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6;padding:0 16px;padding-block:20px 0}
+.wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:22px;padding-bottom:24px}
+header{display:flex;flex-direction:column;gap:6px;border-bottom:3px double var(--rule);padding-bottom:14px}
+.eyebrow{font-size:12px;letter-spacing:.12em;color:var(--muted)}
+h1{font-family:var(--f-display);font-size:clamp(24px,5vw,34px);letter-spacing:.06em;margin:0;text-wrap:balance}
+header p{margin:0;color:var(--muted);max-width:62ch}
+h2{font-family:var(--f-display);font-size:19px;letter-spacing:.05em;margin:0 0 10px;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;text-wrap:balance}
+h2 .step{font-family:var(--f-num);font-size:13px;background:var(--ink);color:var(--ground);padding:0 7px;letter-spacing:0}
+h2 small{font-family:var(--f-body);font-size:12px;color:var(--muted);letter-spacing:0;font-weight:400}
+h3{margin:0 0 8px;font-size:15px}
+.panel{background:var(--sheet);border:1px solid var(--rule);padding:16px;display:flex;flex-direction:column;gap:14px}
+.grid{display:grid;gap:12px 16px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.cases{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.case h3{display:flex;align-items:center;gap:8px;margin:0}
+.tag{font-family:var(--f-num);background:var(--accent);color:var(--accent-ink);padding:1px 8px;font-size:13px}
+.case .grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+label b{color:var(--ink);font-weight:700}
+.hint{font-size:12px;color:var(--muted);line-height:1.5}
+input,select{font:inherit;font-size:15px;color:var(--ink);background:var(--cell);border:1px solid var(--rule);border-radius:0;padding:7px 9px;width:100%;min-width:0}
+input[type=number]{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.chk{flex-direction:row;align-items:center;gap:8px;color:var(--ink)}
+.chk input{width:auto}
+
+/* 内訳を積み上げる入力（除算・調整額） */
+.builder{border:1px solid var(--rule);background:var(--sheet)}
+.builder-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 12px;align-items:baseline;padding:10px 12px;background:var(--cell);border-bottom:1px solid var(--rule)}
+.builder-head b{font-size:14px}
+.builder-head .sum{font-family:var(--f-num);font-size:14px;color:var(--accent)}
+.brows{display:flex;flex-direction:column}
+.brow{display:grid;grid-template-columns:minmax(0,1fr) 6.5em 2.4em;gap:8px;padding:8px 12px;border-bottom:1px dashed var(--rule);align-items:center}
+.brow .calc{grid-column:1/-1;font-size:12px;color:var(--muted);margin-top:-4px}
+.brow button{padding:6px 0}
+.bfoot{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 12px}
+.bfoot .hint{flex:1 1 240px}
+details.help{font-size:13px;border-top:1px solid var(--rule)}
+details.help summary{cursor:pointer;padding:9px 12px;color:var(--accent);font-weight:700}
+details.help .in{padding:0 12px 12px;display:flex;flex-direction:column;gap:8px}
+details.help table{min-width:0}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--rule);background:var(--sheet)}
+table{border-collapse:collapse;width:100%;min-width:560px;font-variant-numeric:tabular-nums}
+.small table, table.small{min-width:0}
+th,td{border:1px solid var(--rule);padding:7px 10px;vertical-align:top}
+thead th{background:var(--cell);font-size:13px;text-align:center}
+tbody th{background:var(--cell);text-align:left;font-weight:400;font-size:13.5px;width:30%}
+tbody th .law{display:block;font-size:11px;color:var(--muted)}
+td{text-align:right;font-family:var(--f-num);font-size:14.5px}
+td.txt{text-align:left;font-family:var(--f-body);font-size:13px}
+td .man{display:block;font-family:var(--f-body);font-size:12px;color:var(--muted)}
+td.neg{color:var(--red)}
+tr.total th,tr.total td{font-weight:700;font-size:16px;border-top:2px solid var(--ink)}
+tr.total td{color:var(--accent)}
+.pill{display:inline-block;font-family:var(--f-body);font-size:12px;padding:1px 8px;border-radius:10px}
+.pill.ok{background:var(--ok-bg);color:var(--ok-fg)}
+.pill.no{background:var(--no-bg);color:var(--no-fg)}
+
+button{font:inherit;font-size:13px;background:var(--sheet);color:var(--ink);border:1px solid var(--rule);padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.add{color:var(--accent);border-style:dashed}
+
+/* 試算ボタン（画面下に固定） */
+.runbar{position:sticky;bottom:0;z-index:5;background:color-mix(in srgb,var(--ground) 92%,transparent);border-top:1px solid var(--rule);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));margin:0 -16px;display:flex;justify-content:center;gap:12px;align-items:center;flex-wrap:wrap;backdrop-filter:blur(4px)}
+.runbar .state{font-size:12.5px;color:var(--muted)}
+.runbar .state.stale{color:var(--warn-fg);font-weight:700}
+button.run{background:var(--accent);color:var(--accent-ink);border:none;font-size:17px;font-weight:700;padding:12px 40px;letter-spacing:.08em}
+button.run:hover{filter:brightness(1.08)}
+
+/* 結果 */
+#results{scroll-margin-top:12px;display:flex;flex-direction:column;gap:18px}
+.done{border:2px solid var(--accent);background:var(--sheet);padding:18px 16px;display:flex;flex-direction:column;gap:14px}
+.done.stale{border-color:var(--rule);opacity:.6}
+.done-head{display:flex;flex-direction:column;gap:2px}
+.done-head .big{font-family:var(--f-display);font-size:clamp(22px,5vw,28px);letter-spacing:.06em;color:var(--accent)}
+.done-head .sub{font-size:13px;color:var(--muted)}
+.cards{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.card{border:1px solid var(--rule);padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.card .lab{font-size:12.5px;color:var(--muted)}
+.card .num{font-family:var(--f-num);font-size:clamp(20px,4.5vw,26px)}
+.card .man{font-size:13px}
+.card.diff{background:var(--cell);border-color:var(--accent)}
+.card.diff .num{color:var(--accent)}
+.verdict{margin:0;font-size:14.5px;line-height:1.7}
+@keyframes flash{from{box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 35%,transparent)}to{box-shadow:0 0 0 0 transparent}}
+.done.flash{animation:flash 1.4s ease-out}
+
+.taxes{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.taxcard{background:var(--sheet);border:1px solid var(--rule);padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.taxcard .result{font-weight:700;font-size:15px}
+.taxcard .result.free{color:var(--ok-fg)}
+.taxcard .result.pay{color:var(--red)}
+.bar{display:flex;flex-direction:column;gap:4px}
+.bar .track{position:relative;height:18px;background:var(--cell);border:1px solid var(--rule)}
+.bar .fill{position:absolute;top:0;bottom:0;left:0;background:var(--bar-free)}
+.bar .over{position:absolute;top:0;bottom:0;background:var(--bar-tax)}
+.bar .line{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+.bar .legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted)}
+.bar .legend i{display:inline-block;width:10px;height:10px;margin-right:4px;vertical-align:-1px}
+.taxcard p{margin:0;font-size:13.5px}
+.taxcard .what{font-size:12.5px;color:var(--muted);border-top:1px dashed var(--rule);padding-top:8px}
+
+.sched{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.sched ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.sched li{display:grid;grid-template-columns:4.5em 1fr auto;gap:8px;padding:8px 0;border-bottom:1px dashed var(--rule);align-items:baseline}
+.sched li .when{font-family:var(--f-num);font-size:13px}
+.sched li .amt{font-family:var(--f-num);text-align:right}
+.sched li .what{font-size:13px;min-width:0}
+
+.note{background:var(--warn-bg);color:var(--warn-fg);padding:12px 14px;font-size:13px;line-height:1.6}
+.note ul{margin:4px 0 0;padding-left:1.2em}
+.laws{font-size:13px}
+.laws dl{display:grid;grid-template-columns:minmax(0,13em) minmax(0,1fr);gap:6px 14px;margin:0}
+.laws dt{font-weight:700}
+.laws dd{margin:0;color:var(--muted)}
+@media (max-width:560px){.laws dl{grid-template-columns:1fr}.laws dd{margin-bottom:6px}}
+details.more summary{cursor:pointer;color:var(--accent);font-weight:700;font-size:14px}
+footer{font-size:12px;color:var(--muted);border-top:1px solid var(--rule);padding-top:12px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header>
+  <span class="eyebrow">国家公務員退職手当法・防衛省職員給与法に基づく概算</span>
+  <h1>自衛官 退職金・若年給付金試算</h1>
+  <p>退職の仕方（自己都合・定年など）と退職時期を2通り入れて「試算する」を押すと、退職手当・若年定年退職者給付金・税金・手取りを並べて比べます。最初は例の数字が入っています。入力した数字はこの端末の中だけで計算され、どこにも送られません。</p>
+</header>
+
+<section class="panel" aria-labelledby="h-common">
+  <h2 id="h-common"><span class="step">1</span>あなたの経歴 <small>両ケース共通</small></h2>
+  <div class="grid">
+    <label for="enlist"><b>入隊年月</b><input id="enlist" type="month" value="1990-04"><span class="hint">入隊した月も1か月と数えます</span></label>
+    <label for="teinen"><b>自分の階級の定年年齢</b><input id="teinen" type="number" min="50" max="60" value="56"><span class="hint">2026年時点：1尉〜1曹 56歳、2曹・3曹 55歳。引上げが予定されているので、自分の定年年齢を入れてください</span></label>
+    <label for="nenshu"><b>現在の年収（税引前・参考）</b><input id="nenshu" type="number" min="0" step="10000" value="7000000"><span class="hint">退職時期の違いで生じる給与の差の目安に使います</span></label>
+  </div>
+
+  <div class="builder" id="joBuilder">
+    <div class="builder-head"><b>勤続年数から差し引く期間（除算期間）</b><span class="sum" id="joSum">合計 0年0月</span></div>
+    <div class="brows" id="joRows"></div>
+    <div class="bfoot"><button type="button" class="add" id="joAdd">＋ 期間を追加</button><span class="hint">該当がなければ空のままで大丈夫です。種類を選ぶと、差し引く割合（全部・1/2・1/3）は自動で計算します。</span></div>
+    <details class="help"><summary>どんな期間が差し引かれる？</summary><div class="in">
+      <div class="tablewrap small"><table class="small"><thead><tr><th>期間の種類</th><th>差し引く割合</th></tr></thead><tbody>
+        <tr><td class="txt">任期満了金（特例退職手当）を受け取った任期</td><td class="txt">全部。例：2年任期を2回なら48か月</td></tr>
+        <tr><td class="txt">育児休業（子が1歳になるまで）</td><td class="txt">1/3</td></tr>
+        <tr><td class="txt">育児休業（子が1歳を過ぎた分）</td><td class="txt">1/2</td></tr>
+        <tr><td class="txt">病気などの休職（公務上の傷病は除く）</td><td class="txt">1/2</td></tr>
+        <tr><td class="txt">自己啓発等休業・配偶者同行休業</td><td class="txt">1/2</td></tr>
+        <tr><td class="txt">停職</td><td class="txt">全部</td></tr>
+      </tbody></table></div>
+      <span class="hint">公務上の傷病による休職や、通常の休暇（年休・病休など）は差し引かれません。月数は休んだ月の数で入れてください。根拠：国家公務員退職手当法第7条。</span>
+    </div></details>
+  </div>
+
+  <div class="builder" id="kBuilder">
+    <div class="builder-head"><b>調整額（在職中の階級で決まる加算）</b><span class="sum" id="kSum">0円</span></div>
+    <div class="brows" id="kRows"></div>
+    <div class="bfoot"><button type="button" class="add" id="kAdd">＋ 階級を追加</button><span class="hint">1曹以上で過ごした階級と月数を入れます。最も高い階級から順に60か月分だけ数えます。</span></div>
+    <details class="help"><summary>調整額とは？ 階級ごとの金額は？</summary><div class="in">
+      <span class="hint">退職前の在職期間のうち、区分の高い月から60か月分の「調整月額」を足した金額です。1曹以上で60か月以上勤めていれば、退職時の階級の金額×60か月になるのが一般的です。2曹以下の期間は0円です。</span>
+      <div class="tablewrap small"><table class="small"><thead><tr><th>階級</th><th>区分</th><th>月額</th><th>60か月分</th></tr></thead><tbody id="kTable"></tbody></table></div>
+      <span class="hint">根拠：国家公務員退職手当法第6条の4、同法施行令第9条の2（月額は平成27年4月改定）。1佐・将補は俸給の格付けで区分が分かれます。正確な区分は支給調書の「調整額 区分」欄でも確認できます。</span>
+    </div></details>
+  </div>
+</section>
+
+<section aria-labelledby="h-cases">
+  <h2 id="h-cases"><span class="step">2</span>比べる2つのケース</h2>
+  <div class="cases">
+    <div class="panel case" data-case="A">
+      <h3><span class="tag">A</span><span>ケースA</span></h3>
+      <div class="grid">
+        <label for="A_reason"><b>退職の理由</b><select id="A_reason"><option value="jiko" selected>自己都合</option><option value="teinen">定年</option><option value="kansho">勧奨・応募認定</option></select></label>
+        <label for="A_date"><b>退職年月</b><input id="A_date" type="month" value="2027-03"></label>
+        <label for="A_hokyu"><b>退職時の俸給月額（円）</b><input id="A_hokyu" type="number" min="0" step="100" value="420000"><span class="hint">給与明細の「俸給」</span></label>
+        <label for="A_zei"><b>税法上の勤続年数</b><input id="A_zei" type="number" min="0" step="1" placeholder="空欄＝自動"><span class="hint">支給調書に「税法勤続年」があればその数字。空欄なら自動</span></label>
+        <label class="chk" for="A_soki"><input id="A_soki" type="checkbox"><span>定年前早期退職特例（勧奨・応募認定のみ）</span></label>
+        <label for="A_sokiY"><b>定年までの残年数（特例用）</b><input id="A_sokiY" type="number" min="0" max="15" step="1" value="0"><span class="hint">特例にチェックした場合のみ。1年につき俸給を3%割増</span></label>
+      </div>
+    </div>
+    <div class="panel case" data-case="B">
+      <h3><span class="tag">B</span><span>ケースB</span></h3>
+      <div class="grid">
+        <label for="B_reason"><b>退職の理由</b><select id="B_reason"><option value="jiko">自己都合</option><option value="teinen" selected>定年</option><option value="kansho">勧奨・応募認定</option></select></label>
+        <label for="B_date"><b>退職年月</b><input id="B_date" type="month" value="2029-03"></label>
+        <label for="B_hokyu"><b>退職時の俸給月額（円）</b><input id="B_hokyu" type="number" min="0" step="100" value="420000"><span class="hint">昇給が止まっていれば同じ額で</span></label>
+        <label for="B_zei"><b>税法上の勤続年数</b><input id="B_zei" type="number" min="0" step="1" placeholder="空欄＝自動"><span class="hint">Aを手入力した場合は、Aの値＋在職が延びた年数を目安に</span></label>
+        <label class="chk" for="B_soki"><input id="B_soki" type="checkbox"><span>定年前早期退職特例（勧奨・応募認定のみ）</span></label>
+        <label for="B_sokiY"><b>定年までの残年数（特例用）</b><input id="B_sokiY" type="number" min="0" max="15" step="1" value="0"><span class="hint">特例にチェックした場合のみ</span></label>
+      </div>
+    </div>
+  </div>
+  <details class="panel more" style="margin-top:16px">
+    <summary>細かい設定（ふつうはそのままで大丈夫）</summary>
+    <div class="grid">
+      <label for="seirei"><b>若年給付金の政令調整率（目安）</b><input id="seirei" type="number" min="0.9" max="1" step="0.001" value="0.98"><span class="hint">年数に応じて数％減ります。過去の調書では0.97〜0.99</span></label>
+      <label for="ichijiRate"><b>若年給付金2回目以降の税率（目安）</b>
+        <select id="ichijiRate"><option value="0.15">15%（所得税5%＋住民税10%）</option><option value="0.20" selected>20%（所得税10%＋住民税10%）</option><option value="0.30">30%（所得税20%＋住民税10%）</option><option value="0.33">33%（所得税23%＋住民税10%）</option></select>
+        <span class="hint">退職後の年収が多いほど高くなります</span></label>
+      <div style="display:flex;flex-direction:column;gap:6px;justify-content:end"><button type="button" id="reset">例の数字に戻す</button><span class="hint" id="saved"></span></div>
+    </div>
+  </details>
+</section>
+
+<div class="runbar">
+  <button type="button" class="run" id="run">試算する</button>
+  <span class="state" id="runState">例の数字で試算した結果を表示中</span>
+</div>
+
+<section id="results" aria-labelledby="h-result" aria-live="polite">
+  <div class="done" id="done">
+    <div class="done-head"><span class="big" id="h-result">試算結果</span><span class="sub" id="doneSub">例の数字での試算です。ご自身の数字に書き換えて「試算する」を押してください。</span></div>
+    <div class="cards" id="cards"></div>
+    <p class="verdict" id="verdict"></p>
+  </div>
+
+  <div>
+    <h2>税金はかかる？ <small>退職手当と若年給付金1回目には「税金がかからない枠」があります</small></h2>
+    <div class="taxes" id="taxes"></div>
+  </div>
+
+  <details class="more" open>
+    <summary>計算の明細</summary>
+    <div class="tablewrap" style="margin-top:10px"><table id="result"><thead><tr><th>項目</th><th>ケースA</th><th>ケースB</th></tr></thead><tbody></tbody></table></div>
+  </details>
+
+  <div>
+    <h2>若年給付金の支給予定 <small>現行の4回払いで当てはめた目安</small></h2>
+    <div class="sched" id="sched"></div>
+  </div>
+</section>
+
+<section class="note">
+  <b>この試算の限界</b>
+  <ul>
+    <li>2028年4月1日以後の退職者は、若年給付金の支給回数・計算方法・再就職収入による減額基準がさらに改められることが法律で決まっています。支給予定と配分（前期30:70、後期40:60）は現行ルールによる目安です。</li>
+    <li>若年給付金は退職翌年などの所得が多いと減額・返納があります。この試算は減額なしの金額です。</li>
+    <li>若年給付金の俸給月額には上限（3佐の最高号俸）があります。</li>
+    <li>税金は退職手当と若年1回目を合算して計算しています。支給年がずれる場合や、iDeCo等の一時金を受け取る場合は控除の調整が入ります。</li>
+    <li>正式な金額は部隊の人事担当（厚生・給与担当）の試算で確認してください。</li>
+  </ul>
+</section>
+
+<section class="panel laws" aria-labelledby="h-laws">
+  <h2 id="h-laws">計算に使った法令</h2>
+  <dl>
+    <dt>国家公務員退職手当法 第3条</dt><dd>自己都合等の基本額。勤続1〜10年は1年につき100/100、11〜15年110、16〜20年160、21〜25年200、26〜30年160、31年以上120。勤続10年以下×60%、11〜15年×80%、16〜19年×90%</dd>
+    <dt>同法 第4条</dt><dd>勤続11年以上25年未満の定年・勧奨等。1〜10年125/100、11〜15年137.5、16〜24年200</dd>
+    <dt>同法 第5条</dt><dd>勤続25年以上の定年・勧奨等。1〜10年150/100、11〜25年165、26〜34年180、35年目105（上限57月分）</dd>
+    <dt>同法 第5条の2</dt><dd>定年前早期退職特例。定年までの残年数1年につき俸給月額を3%割増（勧奨・応募認定で要件を満たす人）</dd>
+    <dt>同法 第6条の4・施行令第9条の2</dt><dd>調整額。上位60か月の区分月額の合計。自己都合で勤続10〜24年は1/2、9年以下は0</dd>
+    <dt>同法 附則（当分の間）</dt><dd>基本額に調整率100分の83.7を掛ける</dd>
+    <dt>同法 第7条</dt><dd>勤続期間は月単位。特例退職手当を受けた期間・停職は全部、休職等は1/2、子が1歳までの育児休業は1/3を除算。除算後の1年未満は切り捨て</dd>
+    <dt>防衛省の職員の給与等に関する法律 第27条の2〜</dt><dd>若年定年退職者給付金。通算20年以上在職し定年等で退職した自衛官に支給。俸給月額×（定年〜60歳の年数×前期月数＋60歳〜一般職定年の年数×後期月数）×政令率</dd>
+    <dt>令和8年法律第53号 附則</dt><dd>前期・後期の月数を段階的に引上げ。2026年3月まで6・3.45月、2026年4月〜7・3.83月、2027年4月〜8・4.21月、2028年4月〜9・4.6月</dd>
+    <dt>国家公務員法（定年引上げ）</dt><dd>一般職の定年：2023〜24年度61歳、25〜26年度62歳、27〜28年度63歳、29〜30年度64歳、31年度〜65歳（後期の年数に使用）</dd>
+    <dt>所得税法 第30条・第89条ほか</dt><dd>退職所得控除：勤続20年以下40万円×年数（最低80万円）、20年超800万円＋70万円×（年数−20）。（収入−控除）×1/2に累進税率、復興特別所得税2.1%。住民税10%（市町村6%・道府県4%）</dd>
+    <dt>所得税法 第34条</dt><dd>若年給付金の2回目以降は一時所得。（金額−50万円）×1/2が課税対象</dd>
+  </dl>
+</section>
+
+<footer>概算です。法令改正や個別の事情（在職期間の通算、俸給の上限など）で実際の額は変わります。最終確認は人事担当へ。</footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const KEY = "jsdf-retire-calc-v2";
+
+/* ---------- マスタ ---------- */
+const JO_TYPES = [
+  {v:"tokurei", label:"任期満了金（特例退職手当）を受けた期間", f:1},
+  {v:"ikukyu1", label:"育児休業（子が1歳まで）", f:1/3},
+  {v:"ikukyu2", label:"育児休業（子が1歳を過ぎた分）", f:1/2},
+  {v:"kyushoku", label:"病気などの休職（公務上を除く）", f:1/2},
+  {v:"jikokeihatsu", label:"自己啓発等休業・配偶者同行休業", f:1/2},
+  {v:"teishoku", label:"停職", f:1},
+];
+const FRAC = f => f===1 ? "全部" : f===1/2 ? "1/2" : "1/3";
+const RANKS = [
+  {v:"sho",  label:"将", ku:1, m:95400},
+  {v:"shoho1",label:"将補（一）", ku:2, m:78750},
+  {v:"shoho2",label:"将補（二）", ku:3, m:70400},
+  {v:"issa1",label:"1佐（一）", ku:4, m:65000},
+  {v:"issa2",label:"1佐（二）", ku:5, m:59550},
+  {v:"issa3",label:"1佐（三）", ku:6, m:54150},
+  {v:"nisa", label:"2佐", ku:7, m:43350},
+  {v:"sansa",label:"3佐", ku:8, m:32500},
+  {v:"ichii",label:"1尉", ku:9, m:27100},
+  {v:"nii",  label:"2尉", ku:10, m:21700},
+  {v:"sani", label:"3尉", ku:10, m:21700},
+  {v:"jun",  label:"准尉", ku:10, m:21700},
+  {v:"socho",label:"曹長", ku:10, m:21700},
+  {v:"isso", label:"1曹", ku:10, m:21700},
+  {v:"niso", label:"2曹以下", ku:11, m:0},
+];
+const rankBy = v => RANKS.find(r=>r.v===v) || RANKS[13];
+$("kTable").innerHTML = RANKS.map(r=>`<tr><td class="txt">${r.label}</td><td class="txt">第${r.ku}号</td><td>${r.m.toLocaleString()}円</td><td>${(r.m*60).toLocaleString()}円</td></tr>`).join("");
+
+/* ---------- 積み上げ入力 ---------- */
+let joRows = [];           // {type, months}
+let kRows = [{rank:"isso", months:60}];
+const DEF_K = JSON.stringify(kRows);
+
+function drawJo(){
+  $("joRows").innerHTML = joRows.map((r,i)=>`
+    <div class="brow">
+      <select aria-label="期間の種類" data-jo="${i}" data-k="type">${JO_TYPES.map(t=>`<option value="${t.v}" ${t.v===r.type?'selected':''}>${t.label}</option>`).join("")}</select>
+      <input type="number" min="0" step="1" aria-label="月数" data-jo="${i}" data-k="months" value="${r.months}" placeholder="月数">
+      <button type="button" aria-label="この行を削除" data-jodel="${i}">×</button>
+      <span class="calc" id="joCalc${i}"></span>
+    </div>`).join("") || `<div class="brow"><span class="hint" style="grid-column:1/-1">差し引く期間はありません</span></div>`;
+  updateJoSum();
+}
+function joTotal(){ return joRows.reduce((s,r)=> s + (+r.months||0) * (JO_TYPES.find(t=>t.v===r.type)?.f ?? 0.5), 0); }
+function tokureiMonths(){ return joRows.filter(r=>r.type==="tokurei").reduce((s,r)=>s+(+r.months||0),0); }
+function ymFrac(m){ const y=Math.floor(m/12+1e-9); let r=m-y*12; r=Math.round(r*100)/100; return `${y}年${r}月`; }
+function updateJoSum(){
+  joRows.forEach((r,i)=>{ const t=JO_TYPES.find(t=>t.v===r.type); const el=$("joCalc"+i); if(el) el.textContent = `${+r.months||0}か月 × ${FRAC(t.f)} ＝ ${Math.round((+r.months||0)*t.f*100)/100}か月を差し引き`; });
+  $("joSum").textContent = "合計 " + ymFrac(joTotal());
+}
+
+function drawK(){
+  $("kRows").innerHTML = kRows.map((r,i)=>`
+    <div class="brow">
+      <select aria-label="階級" data-kr="${i}" data-k="rank">${RANKS.map(x=>`<option value="${x.v}" ${x.v===r.rank?'selected':''}>${x.label}（第${x.ku}号 ${x.m.toLocaleString()}円）</option>`).join("")}</select>
+      <input type="number" min="0" step="1" aria-label="在職月数" data-kr="${i}" data-k="months" value="${r.months}" placeholder="月数">
+      <button type="button" aria-label="この行を削除" data-krdel="${i}">×</button>
+    </div>`).join("") || `<div class="brow"><span class="hint" style="grid-column:1/-1">1曹以上の在職がなければ調整額は0円です</span></div>`;
+  updateKSum();
+}
+function choseiFull(){ // 区分の高い順に60か月
+  const list = kRows.map(r=>({m:rankBy(r.rank).m, n:Math.max(0,+r.months||0)})).sort((a,b)=>b.m-a.m);
+  let left=60, sum=0; for(const x of list){ const n=Math.min(left,x.n); sum+=n*x.m; left-=n; if(left<=0) break; }
+  return {sum, used:60-left};
+}
+function updateKSum(){ const c=choseiFull(); $("kSum").textContent = `${c.sum.toLocaleString()}円（${c.used}か月分）`; }
+
+document.addEventListener("input", e=>{
+  const t=e.target;
+  if(t.dataset.jo!==undefined){ joRows[+t.dataset.jo][t.dataset.k]=t.value; updateJoSum(); }
+  if(t.dataset.kr!==undefined){ kRows[+t.dataset.kr][t.dataset.k]=t.value; updateKSum(); }
+  if(t.matches("input,select")){ markStale(); save(); }
+});
+document.addEventListener("change", e=>{
+  const t=e.target;
+  if(t.dataset.jo!==undefined){ joRows[+t.dataset.jo][t.dataset.k]=t.value; updateJoSum(); }
+  if(t.dataset.kr!==undefined){ kRows[+t.dataset.kr][t.dataset.k]=t.value; updateKSum(); }
+  if(t.matches("input,select")){ markStale(); save(); }
+});
+document.addEventListener("click", e=>{
+  const t=e.target;
+  if(t.dataset.jodel!==undefined){ joRows.splice(+t.dataset.jodel,1); drawJo(); markStale(); save(); }
+  if(t.dataset.krdel!==undefined){ kRows.splice(+t.dataset.krdel,1); drawK(); markStale(); save(); }
+});
+$("joAdd").onclick = ()=>{ joRows.push({type:"ikukyu1", months:""}); drawJo(); markStale(); save(); };
+$("kAdd").onclick = ()=>{ kRows.push({rank:"socho", months:""}); drawK(); markStale(); save(); };
+
+/* ---------- 保存 ---------- */
+const IDS = ["enlist","teinen","nenshu","seirei","ichijiRate","A_reason","A_date","A_hokyu","A_zei","A_soki","A_sokiY","B_reason","B_date","B_hokyu","B_zei","B_soki","B_sokiY"];
+const DEFAULTS = {}; IDS.forEach(id=>{ const el=$(id); DEFAULTS[id]= el.type==="checkbox"?el.checked:el.value; });
+function save(){ try{ const s={jo:joRows,k:kRows}; IDS.forEach(id=>{const el=$(id); s[id]= el.type==="checkbox"?el.checked:el.value;});
+  localStorage.setItem(KEY,JSON.stringify(s)); $("saved").textContent="入力はこの端末に保存されています"; }catch(e){} }
+function load(){ try{ const s=JSON.parse(localStorage.getItem(KEY)||"null"); if(!s) return false;
+  IDS.forEach(id=>{ if(id in s){ const el=$(id); if(el.type==="checkbox") el.checked=!!s[id]; else el.value=s[id]; }});
+  if(Array.isArray(s.jo)) joRows=s.jo; if(Array.isArray(s.k)) kRows=s.k; return true; }catch(e){ return false; } }
+
+/* ---------- 計算 ---------- */
+const yen = n => Math.floor(n).toLocaleString("ja-JP");
+const man = n => "約" + Math.round(n/10000).toLocaleString("ja-JP") + "万円";
+const manN = n => Math.round(n/10000).toLocaleString("ja-JP") + "万円";
+const ym = s => { const [y,m]=(s||"").split("-").map(Number); return {y,m}; };
+const monthsBetween = (a,b) => (b.y-a.y)*12 + (b.m-a.m) + 1;
+const addMonths = (d,n) => { const t=d.y*12+(d.m-1)+n; return {y:Math.floor(t/12), m:t%12+1}; };
+const fmtYM = d => `${d.y}年${d.m}月`;
+const fiscalYear = d => d.m>=4 ? d.y : d.y-1;
+
+function rateSum(years, bands){ let s=0, y=0; for(const [to,r] of bands){ const n=Math.max(0,Math.min(years,to)-y); s+=n*r; y=to; if(years<=to) break; } return s; }
+const ART3 = [[10,1.0],[15,1.1],[20,1.6],[25,2.0],[30,1.6],[999,1.2]];
+const ART4 = [[10,1.25],[15,1.375],[24,2.0]];
+const ART5 = [[10,1.5],[25,1.65],[34,1.8],[35,1.05]];
+const CHOSEI = 0.837, CAP = 57;
+function shikyuWariai(years, reason){
+  let base, law;
+  if(reason==="jiko"){
+    base = rateSum(years, ART3);
+    if(years<=10) base*=0.6; else if(years<=15) base*=0.8; else if(years<=19) base*=0.9;
+    law="第3条";
+  }else if(years>=25){ base=rateSum(years,ART5); law="第5条"; }
+  else if(years>=11){ base=rateSum(years,ART4); law="第4条"; }
+  else { base=rateSum(years,ART3); law="第3条"; }
+  base=Math.min(base,CAP);
+  return {raw:base, rate:Math.round(base*CHOSEI*1e5)/1e5, law};
+}
+function jakunenCoef(d){ const t=d.y*12+d.m;
+  if(t < 2026*12+4) return [6,3.45]; if(t < 2027*12+4) return [7,3.83]; if(t < 2028*12+4) return [8,4.21]; return [9,4.6]; }
+function generalTeinen(fy){ if(fy<=2022) return 60; if(fy<=2024) return 61; if(fy<=2026) return 62; if(fy<=2028) return 63; if(fy<=2030) return 64; return 65; }
+const BRACKETS=[[1950000,.05,0],[3300000,.10,97500],[6950000,.20,427500],[9000000,.23,636000],[18000000,.33,1536000],[40000000,.40,2796000],[Infinity,.45,4796000]];
+function incomeTax(t){ for(const [lim,r,d] of BRACKETS){ if(t<=lim) return Math.max(0,t*r-d); } return 0; }
+function topRate(t){ for(const [lim,r] of BRACKETS){ if(t<=lim) return r; } return .45; }
+function retirementTax(total, zeiYears){
+  const ctrl = zeiYears<=20 ? Math.max(800000,400000*zeiYears) : 8000000+700000*(zeiYears-20);
+  const taxable = Math.max(0, Math.floor((total-ctrl)/2/1000)*1000);
+  const it = Math.floor(incomeTax(taxable)*1.021);
+  const city = Math.floor(taxable*0.06/100)*100, pref=Math.floor(taxable*0.04/100)*100;
+  return {ctrl,taxable,it,res:city+pref,total:it+city+pref,rate:topRate(taxable)};
+}
+
+function calc(c){
+  const enlist=ym($("enlist").value), joMonths=joTotal(), teinen=+$("teinen").value||56;
+  const seirei=+$("seirei").value||1, ichiji=+$("ichijiRate").value;
+  const reason=$(c+"_reason").value, date=ym($(c+"_date").value), hokyu=+$(c+"_hokyu").value||0;
+  const zaiMonths = monthsBetween(enlist,date);
+  const santeiMonths = zaiMonths - joMonths;
+  const years = Math.max(0, Math.floor(santeiMonths/12 + 1e-9));
+  const sw = shikyuWariai(years, reason);
+  let base = hokyu, soki = 0;
+  if($(c+"_soki").checked && reason==="kansho"){ soki=Math.max(0,+$(c+"_sokiY").value||0); base=hokyu*(1+0.03*soki); }
+  const kihon = Math.floor(base * sw.rate);
+  let chosei = choseiFull().sum, choseiNote = "";
+  if(reason==="jiko"){ if(years<=9){ chosei=0; choseiNote="自己都合・勤続9年以下は0"; } else if(years<=24){ chosei=Math.floor(chosei/2); choseiNote="自己都合・勤続24年以下は半額"; } }
+  const teate = kihon + chosei;
+
+  const eligible = reason==="teinen" && zaiMonths >= 240;
+  const [cz, ck] = jakunenCoef(date);
+  const zenYears = Math.max(0, 60 - teinen);
+  const koYears = Math.max(0, generalTeinen(fiscalYear(date)) - 60);
+  const zen = eligible ? Math.floor(hokyu*zenYears*cz*seirei) : 0;
+  const ko  = eligible ? Math.floor(hokyu*koYears*ck*seirei) : 0;
+  const j1 = Math.floor(zen*0.3), j2 = zen-j1, j3=Math.floor(ko*0.4), j4=ko-j3;
+
+  const zeiAuto = Math.ceil(Math.max(0, zaiMonths - tokureiMonths())/12);
+  const zeiYears = $(c+"_zei").value!=="" ? +$(c+"_zei").value : zeiAuto;
+  const rtBase = teate + j1;
+  const rt = retirementTax(rtBase, zeiYears);
+  const later = [j2,j3,j4];
+  const ichijiTax = later.reduce((s,a)=> s + Math.max(0,(a-500000)/2)*ichiji, 0);
+  const net = teate + zen + ko - rt.total - ichijiTax;
+
+  const s1 = (date.m>=4 && date.m<=9) ? {y:date.y, m:10} : {y: date.m>=10? date.y+1 : date.y, m:4};
+  const s2 = {y:date.y+2, m:8};
+  const age60 = addMonths(date, zenYears*12);
+  const s3 = (age60.m>=4 && age60.m<=9) ? {y:age60.y,m:10} : {y: age60.m>=10? age60.y+1: age60.y, m:4};
+  const s4 = {y: age60.y + 2, m:8};
+  return {c,reason,date,hokyu,zaiMonths,santeiMonths,years,sw,kihon,chosei,choseiNote,teate,eligible,cz,ck,zenYears,koYears,zen,ko,j1,j2,j3,j4,
+    zeiYears,rtBase,rt,ichijiTax,net,soki,sched:[[s1,j1,"前期1回目"],[s2,j2,"前期2回目"],[s3,j3,"後期1回目"],[s4,j4,"後期2回目"]]};
+}
+
+/* ---------- 表示 ---------- */
+const REASON = {jiko:"自己都合", teinen:"定年", kansho:"勧奨・応募認定"};
+const ymText = m => ymFrac(m);
+
+function taxCard(r){
+  const tot=r.rtBase, ctrl=r.rt.ctrl, over=Math.max(0,tot-ctrl);
+  const max=Math.max(tot,ctrl)*1.05||1;
+  const pct = x => (x/max*100).toFixed(2)+"%";
+  const ctrlFormula = r.zeiYears<=20 ? `40万円×${r.zeiYears}年` : `800万円＋70万円×(${r.zeiYears}年−20年)`;
+  const items = r.j1 ? `退職手当 ${manN(r.teate)}＋若年給付金1回目 ${manN(r.j1)}` : `退職手当 ${manN(r.teate)}`;
+  let result, body;
+  if(over<=0){
+    result = `<span class="result free">税金はかかりません</span>`;
+    body = `<p>${items}＝<b>${manN(tot)}</b>は、税金がかからない枠<b>${manN(ctrl)}</b>の中に収まっています（枠の残り ${manN(ctrl-tot)}）。</p>`;
+  }else{
+    const eff = r.rt.total/over*100;
+    result = `<span class="result pay">税金 ${man(r.rt.total)}（所得税 ${manN(r.rt.it)}・住民税 ${manN(r.rt.res)}）</span>`;
+    body = `<p>${items}＝<b>${manN(tot)}</b>のうち、枠<b>${manN(ctrl)}</b>を超えた<b>${manN(over)}</b>だけに税金がかかります。</p>
+      <p>超えた分はさらに半分の<b>${manN(r.rt.taxable)}</b>が課税の対象になり、所得税${Math.round(r.rt.rate*100)}%（＋復興税）と住民税10%がかかります。結果として、超えた${manN(over)}に対して<b>約${eff.toFixed(1)}%</b>の税金です。</p>`;
+  }
+  const later = r.j2+r.j3+r.j4;
+  const laterTxt = later ? `<p class="what">若年給付金の2回目以降（合計${manN(later)}）は別の税金（一時所得）です。毎回50万円を引いた残りの半分に課税され、目安は${man(r.ichijiTax)}です（退職後の収入で変わります）。</p>` : "";
+  return `<div class="taxcard">
+    <h3 style="display:flex;gap:8px;align-items:center"><span class="tag">${r.c}</span>${REASON[r.reason]}・${fmtYM(r.date)}退職</h3>
+    ${result}
+    <div class="bar" aria-hidden="true">
+      <div class="track"><div class="fill" style="width:${pct(Math.min(tot,ctrl))}"></div>${over>0?`<div class="over" style="left:${pct(ctrl)};width:${pct(over)}"></div>`:""}<div class="line" style="left:${pct(ctrl)}"></div></div>
+      <div class="legend"><span><i style="background:var(--bar-free)"></i>枠の中（税金なし）</span>${over>0?`<span><i style="background:var(--bar-tax)"></i>枠を超えた分（課税）</span>`:""}<span>｜縦線＝枠 ${manN(ctrl)}</span></div>
+    </div>
+    ${body}
+    <p class="what"><b>税金がかからない枠（退職所得控除）とは</b>：勤めた年数に応じて、退職金のうち税金をかけない金額です。勤続20年までは1年40万円、20年を超えた分は1年70万円ずつ増えます。この人は税法上の勤続${r.zeiYears}年なので、${ctrlFormula}＝${manN(ctrl)}です。</p>
+    ${laterTxt}
+  </div>`;
+}
+
+function render(fromButton){
+  const A=calc("A"), B=calc("B");
+  // 要約カード
+  const d = B.net - A.net;
+  $("cards").innerHTML = [A,B].map(r=>`
+    <div class="card"><span class="lab"><span class="tag">${r.c}</span> ${REASON[r.reason]}・${fmtYM(r.date)}退職の手取り</span>
+      <span class="num">${yen(r.net)}円</span><span class="man">${man(r.net)}</span>
+      <span class="hint">退職手当 ${manN(r.teate)}／若年給付金 ${manN(r.zen+r.ko)}／税金 −${manN(r.rt.total+r.ichijiTax)}</span></div>`).join("")
+    + `<div class="card diff"><span class="lab">手取りの差（B − A）</span><span class="num">${d<0?'−':'＋'}${yen(Math.abs(d))}円</span><span class="man">${man(Math.abs(d))}</span></div>`;
+  // 一言まとめ
+  const later = (B.date.y*12+B.date.m) - (A.date.y*12+A.date.m);
+  const sal = Math.abs(later) * (+$("nenshu").value||0)/12;
+  const winner = d>=0 ? "B" : "A", W = d>=0?B:A, L = d>=0?A:B;
+  const taxSent = (W.rt.total>0 && L.rt.total===0) ? `ケース${winner}は税金がかかる分を差し引いても、` : (W.rt.total>0 ? `税金を差し引いた後でも、` : "");
+  $("verdict").innerHTML = d===0 ? "2つのケースの手取りは同じです。" :
+    `${taxSent}<b>ケース${winner}（${REASON[W.reason]}）の方が手取りが${man(Math.abs(d))}多く</b>なります。` +
+    (later!==0 ? `さらに、在職が${Math.abs(later)}か月${later>0?'長い':'短い'}ケースBでは、その間の給与（税引前 ${man(sal)}）${later>0?'も入ります':'がなくなります'}。` : "");
+  // 税金カード
+  $("taxes").innerHTML = taxCard(A) + taxCard(B);
+  // 明細
+  const money = (n, neg) => `<td class="${neg?'neg':''}">${neg&&n>0?'−':''}${yen(n)}<span class="man">${n? man(n):'—'}</span></td>`;
+  const rows = [
+    ["退職理由・退職年月", r=>`<td>${REASON[r.reason]}<span class="man">${fmtYM(r.date)}</span></td>`],
+    ["在職期間", r=>`<td>${ymText(r.zaiMonths)}</td>`, "入隊月から退職月まで"],
+    ["差し引く期間（除算）", r=>`<td>${ymText(joTotal())}</td>`, "第7条"],
+    ["算定年数", r=>`<td>${r.years}年<span class="man">${ymText(r.santeiMonths)}（1年未満切捨て）</span></td>`, "在職期間−除算"],
+    ["支給割合", r=>`<td>${r.sw.rate.toFixed(5)}<span class="man">${r.sw.raw.toFixed(3)}×0.837（${r.sw.law}）</span></td>`, "第3〜5条・附則"],
+    ["基本額", r=>money(r.kihon), "俸給月額×支給割合"],
+    ["調整額", r=>`${money(r.chosei).replace('</td>', r.choseiNote?`<span class="man">${r.choseiNote}</span></td>`:'</td>')}`, "第6条の4"],
+    ["退職手当額", r=>money(r.teate)],
+    ["若年給付金の対象", r=>`<td>${r.eligible?'<span class="pill ok">対象</span>':'<span class="pill no">対象外</span>'}<span class="man">${r.eligible?`前期${r.zenYears}年×${r.cz}月・後期${r.koYears}年×${r.ck}月`: (r.reason==='teinen'?'在職20年未満':'定年退職のみ')}</span></td>`, "給与法 第27条の2"],
+    ["若年 前期（定年〜60歳）", r=>money(r.zen)],
+    ["若年 後期（60歳〜一般職定年）", r=>money(r.ko)],
+    ["税金がかからない枠", r=>`<td>${yen(r.rt.ctrl)}<span class="man">税法上の勤続${r.zeiYears}年</span></td>`, "退職所得控除"],
+    ["退職手当などにかかる税金", r=>money(r.rt.total,true), "退職手当＋若年1回目"],
+    ["若年2回目以降の税金（目安）", r=>money(Math.floor(r.ichijiTax),true), "一時所得"],
+    ["手取りの合計（目安）", r=>money(r.net), "", "total"],
+  ];
+  document.querySelector("#result tbody").innerHTML = rows.map(([label,f,law,cls])=>
+    `<tr class="${cls||''}"><th>${label}${law?`<span class="law">${law}</span>`:''}</th>${f(A)}${f(B)}</tr>`).join("");
+  // 支給予定
+  $("sched").innerHTML = [A,B].map(r=>`
+    <div class="panel" style="gap:6px"><h3 style="margin:0;font-size:14px"><span class="tag">${r.c}</span> ${REASON[r.reason]}・${fmtYM(r.date)}退職</h3>
+    ${r.eligible ? `<ol>${r.sched.map(([d,a,w])=>`<li><span class="when">${d.y}.${String(d.m).padStart(2,'0')}</span><span class="what">${w}</span><span class="amt">${yen(a)}円</span></li>`).join("")}</ol>
+      <p class="hint" style="margin:0">60歳到達は「退職年月＋（60−定年年齢）年」で近似。2回目以降は所得により減額あり。</p>`
+      : `<p class="hint" style="margin:0">若年給付金はありません（${r.reason==='teinen'?'在職20年未満':'定年退職以外は対象外'}）。</p>`}</div>`).join("");
+
+  const done=$("done"); done.classList.remove("stale");
+  $("runState").className="state";
+  if(fromButton){
+    $("h-result").textContent = "試算できました";
+    $("doneSub").textContent = "入力した数字での結果です。数字を変えたら、もう一度「試算する」を押してください。";
+    $("runState").textContent = "最新の入力で試算済み";
+    done.classList.remove("flash"); void done.offsetWidth; done.classList.add("flash");
+    const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    $("results").scrollIntoView({behavior: reduce?"auto":"smooth", block:"start"});
+  }
+}
+function markStale(){
+  $("done").classList.add("stale");
+  $("runState").textContent = "入力が変わりました。「試算する」を押すと結果を更新します";
+  $("runState").className = "state stale";
+}
+
+$("run").onclick = ()=> render(true);
+$("reset").onclick = ()=>{
+  IDS.forEach(id=>{ const el=$(id); if(el.type==="checkbox") el.checked=DEFAULTS[id]; else el.value=DEFAULTS[id]; });
+  joRows=[]; kRows=JSON.parse(DEF_K); drawJo(); drawK();
+  try{ localStorage.removeItem(KEY); }catch(e){}
+  $("saved").textContent="例の数字に戻しました"; render(false);
+  $("h-result").textContent="試算結果"; $("doneSub").textContent="例の数字での試算です。ご自身の数字に書き換えて「試算する」を押してください。";
+  $("runState").textContent="例の数字で試算した結果を表示中";
+};
+
+const had = load();
+drawJo(); drawK(); render(false);
+if(had){ $("h-result").textContent="前回の入力での試算結果"; $("doneSub").textContent="この端末に保存されていた数字で計算しています。"; $("runState").textContent="前回の入力で試算済み"; }
+</script>
+
+</body>
+</html>
