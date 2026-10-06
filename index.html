@@ -160,7 +160,7 @@ footer{font-size:12px;color:var(--muted);border-top:1px solid var(--rule);paddin
   <h2 id="h-common"><span class="step">1</span>あなたの経歴 <small>両ケース共通</small></h2>
   <div class="grid">
     <label for="enlist"><b>入隊年月</b><input id="enlist" type="month" value="1990-04"><span class="hint">入隊した月も1か月と数えます</span></label>
-    <label for="teinen"><b>自分の階級の定年年齢</b><input id="teinen" type="number" min="50" max="60" value="56"><span class="hint">2026年時点：1尉〜1曹 56歳、2曹・3曹 55歳。引上げが予定されているので、自分の定年年齢を入れてください</span></label>
+    <label for="birth"><b>生まれた年月（任意）</b><input id="birth" type="month" value="1972-06"><span class="hint">入れると、定年退職日と60歳になる時期を自動で計算します。この端末の中だけで使います</span></label>
     <label for="nenshu"><b>現在の年収（税引前・参考）</b><input id="nenshu" type="number" min="0" step="10000" value="7000000"><span class="hint">退職時期の違いで生じる給与の差の目安に使います</span></label>
   </div>
 
@@ -200,7 +200,8 @@ footer{font-size:12px;color:var(--muted);border-top:1px solid var(--rule);paddin
       <h3><span class="tag">A</span><span>ケースA</span></h3>
       <div class="grid">
         <label for="A_reason"><b>退職の理由</b><select id="A_reason"><option value="jiko" selected>自己都合</option><option value="teinen">定年</option><option value="kansho">勧奨・応募認定</option></select></label>
-        <label for="A_date"><b>退職年月</b><input id="A_date" type="month" value="2027-03"></label>
+        <label for="A_teinen"><b>定年年齢</b><input id="A_teinen" type="number" min="50" max="60" value="56"><span class="hint">現在の法令：1尉〜1曹 56歳、2曹・3曹 55歳。2028年10月以降の退職者は1歳引上げの可能性あり</span></label>
+        <label for="A_date"><b>退職年月</b><input id="A_date" type="month" value="2027-03"><span class="hint" id="A_dateHint"></span></label>
         <label for="A_hokyu"><b>退職時の俸給月額（円）</b><input id="A_hokyu" type="number" min="0" step="100" value="420000"><span class="hint">給与明細の「俸給」</span></label>
         <label for="A_zei"><b>税法上の勤続年数</b><input id="A_zei" type="number" min="0" step="1" placeholder="空欄＝自動"><span class="hint">支給調書に「税法勤続年」があればその数字。空欄なら自動</span></label>
         <label class="chk" for="A_soki"><input id="A_soki" type="checkbox"><span>定年前早期退職特例（勧奨・応募認定のみ）</span></label>
@@ -211,7 +212,8 @@ footer{font-size:12px;color:var(--muted);border-top:1px solid var(--rule);paddin
       <h3><span class="tag">B</span><span>ケースB</span></h3>
       <div class="grid">
         <label for="B_reason"><b>退職の理由</b><select id="B_reason"><option value="jiko">自己都合</option><option value="teinen" selected>定年</option><option value="kansho">勧奨・応募認定</option></select></label>
-        <label for="B_date"><b>退職年月</b><input id="B_date" type="month" value="2029-03"></label>
+        <label for="B_teinen"><b>定年年齢</b><input id="B_teinen" type="number" min="50" max="60" value="57"><span class="hint">56と57を切り替えて比べられます</span></label>
+        <label for="B_date"><b>退職年月</b><input id="B_date" type="month" value="2029-06"><span class="hint" id="B_dateHint"></span></label>
         <label for="B_hokyu"><b>退職時の俸給月額（円）</b><input id="B_hokyu" type="number" min="0" step="100" value="420000"><span class="hint">昇給が止まっていれば同じ額で</span></label>
         <label for="B_zei"><b>税法上の勤続年数</b><input id="B_zei" type="number" min="0" step="1" placeholder="空欄＝自動"><span class="hint">Aを手入力した場合は、Aの値＋在職が延びた年数を目安に</span></label>
         <label class="chk" for="B_soki"><input id="B_soki" type="checkbox"><span>定年前早期退職特例（勧奨・応募認定のみ）</span></label>
@@ -222,7 +224,9 @@ footer{font-size:12px;color:var(--muted);border-top:1px solid var(--rule);paddin
   <details class="panel more" style="margin-top:16px">
     <summary>細かい設定（ふつうはそのままで大丈夫）</summary>
     <div class="grid">
-      <label for="seirei"><b>若年給付金の政令調整率（目安）</b><input id="seirei" type="number" min="0.9" max="1" step="0.001" value="0.98"><span class="hint">年数に応じて数％減ります。過去の調書では0.97〜0.99</span></label>
+      <label for="seirei1"><b>若年 前期1回目の調整率</b><input id="seirei1" type="number" min="0.9" max="1" step="0.001" value="0.995"><span class="hint">支給調書から逆算した目安（定年〜60歳が4年で約0.995、5年で約0.988）</span></label>
+      <label for="seirei2"><b>若年 前期2回目の調整率</b><input id="seirei2" type="number" min="0.9" max="1" step="0.001" value="0.97"><span class="hint">過去の調書では約0.968</span></label>
+      <label for="seireiK"><b>若年 後期の調整率</b><input id="seireiK" type="number" min="0.9" max="1" step="0.001" value="0.98"><span class="hint">目安</span></label>
       <label for="ichijiRate"><b>若年給付金2回目以降の税率（目安）</b>
         <select id="ichijiRate"><option value="0.15">15%（所得税5%＋住民税10%）</option><option value="0.20" selected>20%（所得税10%＋住民税10%）</option><option value="0.30">30%（所得税20%＋住民税10%）</option><option value="0.33">33%（所得税23%＋住民税10%）</option></select>
         <span class="hint">退職後の年収が多いほど高くなります</span></label>
@@ -254,7 +258,7 @@ footer{font-size:12px;color:var(--muted);border-top:1px solid var(--rule);paddin
   </details>
 
   <div>
-    <h2>若年給付金の支給予定 <small>現行の4回払いで当てはめた目安</small></h2>
+    <h2>若年給付金の支給予定 <small>現行の4回払いで当てはめた目安。2028年4月以降の退職者は6回払いになる可能性あり（詳細は未公表）</small></h2>
     <div class="sched" id="sched"></div>
   </div>
 </section>
@@ -279,6 +283,7 @@ footer{font-size:12px;color:var(--muted);border-top:1px solid var(--rule);paddin
     <dt>同法 第5条の2</dt><dd>定年前早期退職特例。定年までの残年数1年につき俸給月額を3%割増（勧奨・応募認定で要件を満たす人）</dd>
     <dt>同法 第6条の4・施行令第9条の2</dt><dd>調整額。上位60か月の区分月額の合計。自己都合で勤続10〜24年は1/2、9年以下は0</dd>
     <dt>同法 附則（当分の間）</dt><dd>基本額に調整率100分の83.7を掛ける</dd>
+    <dt>経過措置額（支給調書の欄）</dt><dd>平成18年3月31日以前の制度で計算した場合の比較用の金額。今の制度で計算した額の方が多ければ使われません（多くの人はこちら）。このアプリは今の制度の額で計算しています</dd>
     <dt>同法 第7条</dt><dd>勤続期間は月単位。特例退職手当を受けた期間・停職は全部、休職等は1/2、子が1歳までの育児休業は1/3を除算。除算後の1年未満は切り捨て</dd>
     <dt>防衛省の職員の給与等に関する法律 第27条の2〜</dt><dd>若年定年退職者給付金。通算20年以上在職し定年等で退職した自衛官に支給。俸給月額×（定年〜60歳の年数×前期月数＋60歳〜一般職定年の年数×後期月数）×政令率</dd>
     <dt>令和8年法律第53号 附則</dt><dd>前期・後期の月数を段階的に引上げ。2026年3月まで6・3.45月、2026年4月〜7・3.83月、2027年4月〜8・4.21月、2028年4月〜9・4.6月</dd>
@@ -293,7 +298,7 @@ footer{font-size:12px;color:var(--muted);border-top:1px solid var(--rule);paddin
 
 <script>
 const $ = id => document.getElementById(id);
-const KEY = "jsdf-retire-calc-v2";
+const KEY = "jsdf-retire-calc-v3";
 
 /* ---------- マスタ ---------- */
 const JO_TYPES = [
@@ -368,13 +373,13 @@ document.addEventListener("input", e=>{
   const t=e.target;
   if(t.dataset.jo!==undefined){ joRows[+t.dataset.jo][t.dataset.k]=t.value; updateJoSum(); }
   if(t.dataset.kr!==undefined){ kRows[+t.dataset.kr][t.dataset.k]=t.value; updateKSum(); }
-  if(t.matches("input,select")){ markStale(); save(); }
+  if(t.matches("input,select")){ autoDates(); markStale(); save(); }
 });
 document.addEventListener("change", e=>{
   const t=e.target;
   if(t.dataset.jo!==undefined){ joRows[+t.dataset.jo][t.dataset.k]=t.value; updateJoSum(); }
   if(t.dataset.kr!==undefined){ kRows[+t.dataset.kr][t.dataset.k]=t.value; updateKSum(); }
-  if(t.matches("input,select")){ markStale(); save(); }
+  if(t.matches("input,select")){ autoDates(); markStale(); save(); }
 });
 document.addEventListener("click", e=>{
   const t=e.target;
@@ -385,7 +390,7 @@ $("joAdd").onclick = ()=>{ joRows.push({type:"ikukyu1", months:""}); drawJo(); m
 $("kAdd").onclick = ()=>{ kRows.push({rank:"socho", months:""}); drawK(); markStale(); save(); };
 
 /* ---------- 保存 ---------- */
-const IDS = ["enlist","teinen","nenshu","seirei","ichijiRate","A_reason","A_date","A_hokyu","A_zei","A_soki","A_sokiY","B_reason","B_date","B_hokyu","B_zei","B_soki","B_sokiY"];
+const IDS = ["enlist","birth","nenshu","seirei1","seirei2","seireiK","ichijiRate","A_reason","A_teinen","A_date","A_hokyu","A_zei","A_soki","A_sokiY","B_reason","B_teinen","B_date","B_hokyu","B_zei","B_soki","B_sokiY"];
 const DEFAULTS = {}; IDS.forEach(id=>{ const el=$(id); DEFAULTS[id]= el.type==="checkbox"?el.checked:el.value; });
 function save(){ try{ const s={jo:joRows,k:kRows}; IDS.forEach(id=>{const el=$(id); s[id]= el.type==="checkbox"?el.checked:el.value;});
   localStorage.setItem(KEY,JSON.stringify(s)); $("saved").textContent="入力はこの端末に保存されています"; }catch(e){} }
@@ -435,8 +440,9 @@ function retirementTax(total, zeiYears){
 }
 
 function calc(c){
-  const enlist=ym($("enlist").value), joMonths=joTotal(), teinen=+$("teinen").value||56;
-  const seirei=+$("seirei").value||1, ichiji=+$("ichijiRate").value;
+  const enlist=ym($("enlist").value), joMonths=joTotal(), teinen=+$(c+"_teinen").value||56;
+  const r1=+$("seirei1").value||1, r2=+$("seirei2").value||1, rk=+$("seireiK").value||1, ichiji=+$("ichijiRate").value;
+  const birth = $("birth").value ? ym($("birth").value) : null;
   const reason=$(c+"_reason").value, date=ym($(c+"_date").value), hokyu=+$(c+"_hokyu").value||0;
   const zaiMonths = monthsBetween(enlist,date);
   const santeiMonths = zaiMonths - joMonths;
@@ -453,24 +459,34 @@ function calc(c){
   const [cz, ck] = jakunenCoef(date);
   const zenYears = Math.max(0, 60 - teinen);
   const koYears = Math.max(0, generalTeinen(fiscalYear(date)) - 60);
-  const zen = eligible ? Math.floor(hokyu*zenYears*cz*seirei) : 0;
-  const ko  = eligible ? Math.floor(hokyu*koYears*ck*seirei) : 0;
-  const j1 = Math.floor(zen*0.3), j2 = zen-j1, j3=Math.floor(ko*0.4), j4=ko-j3;
+  // 前期：1回目＝年あたり月数の2/7、2回目＝5/7（支給調書から確認）。それぞれ別の調整率
+  const j1 = eligible ? Math.floor(hokyu*zenYears*cz*(2/7)*r1) : 0;
+  const j2 = eligible ? Math.floor(hokyu*zenYears*cz*(5/7)*r2) : 0;
+  const zen = j1 + j2;
+  const ko  = eligible ? Math.floor(hokyu*koYears*ck*rk) : 0;
+  const j3=Math.floor(ko*0.4), j4=ko-j3;
 
   const zeiAuto = Math.ceil(Math.max(0, zaiMonths - tokureiMonths())/12);
   const zeiYears = $(c+"_zei").value!=="" ? +$(c+"_zei").value : zeiAuto;
   const rtBase = teate + j1;
   const rt = retirementTax(rtBase, zeiYears);
+  // 支給調書と同じく、税額を金額の割合で「退職手当分」と「若年1回目分」に按分
+  const share = rtBase ? teate/rtBase : 1;
+  const f100 = x => Math.floor(x/100)*100;
+  const city = Math.floor(rt.taxable*0.06/100)*100, pref = rt.res - city;
+  const rtT = {it:Math.floor(rt.it*share), res:f100(pref*share)+f100(city*share)};
+  rtT.total = rtT.it + rtT.res;
+  const rtJ = {total: rt.total - rtT.total};
   const later = [j2,j3,j4];
   const ichijiTax = later.reduce((s,a)=> s + Math.max(0,(a-500000)/2)*ichiji, 0);
   const net = teate + zen + ko - rt.total - ichijiTax;
 
   const s1 = (date.m>=4 && date.m<=9) ? {y:date.y, m:10} : {y: date.m>=10? date.y+1 : date.y, m:4};
   const s2 = {y:date.y+2, m:8};
-  const age60 = addMonths(date, zenYears*12);
+  const age60 = birth ? {y:birth.y+60, m:birth.m} : addMonths(date, zenYears*12);
   const s3 = (age60.m>=4 && age60.m<=9) ? {y:age60.y,m:10} : {y: age60.m>=10? age60.y+1: age60.y, m:4};
   const s4 = {y: age60.y + 2, m:8};
-  return {c,reason,date,hokyu,zaiMonths,santeiMonths,years,sw,kihon,chosei,choseiNote,teate,eligible,cz,ck,zenYears,koYears,zen,ko,j1,j2,j3,j4,
+  return {c,teinen,birth,rtT,rtJ,reason,date,hokyu,zaiMonths,santeiMonths,years,sw,kihon,chosei,choseiNote,teate,eligible,cz,ck,zenYears,koYears,zen,ko,j1,j2,j3,j4,
     zeiYears,rtBase,rt,ichijiTax,net,soki,sched:[[s1,j1,"前期1回目"],[s2,j2,"前期2回目"],[s3,j3,"後期1回目"],[s4,j4,"後期2回目"]]};
 }
 
@@ -495,7 +511,8 @@ function taxCard(r){
       <p>超えた分はさらに半分の<b>${manN(r.rt.taxable)}</b>が課税の対象になり、所得税${Math.round(r.rt.rate*100)}%（＋復興税）と住民税10%がかかります。結果として、超えた${manN(over)}に対して<b>約${eff.toFixed(1)}%</b>の税金です。</p>`;
   }
   const later = r.j2+r.j3+r.j4;
-  const laterTxt = later ? `<p class="what">若年給付金の2回目以降（合計${manN(later)}）は別の税金（一時所得）です。毎回50万円を引いた残りの半分に課税され、目安は${man(r.ichijiTax)}です（退職後の収入で変わります）。</p>` : "";
+  const splitTxt = (r.j1 && r.rt.total) ? `<p class="what">支給調書では、この税金を金額の割合で分けて、退職手当から${man(r.rtT.total)}、若年給付金1回目から${man(r.rtJ.total)}を差し引きます。</p>` : "";
+  const laterTxt = splitTxt + (later ?`<p class="what">若年給付金の2回目以降（合計${manN(later)}）は別の税金（一時所得）です。毎回50万円を引いた残りの半分に課税され、目安は${man(r.ichijiTax)}です（退職後の収入で変わります）。</p>` : "");
   return `<div class="taxcard">
     <h3 style="display:flex;gap:8px;align-items:center"><span class="tag">${r.c}</span>${REASON[r.reason]}・${fmtYM(r.date)}退職</h3>
     ${result}
@@ -543,7 +560,8 @@ function render(fromButton){
     ["若年 前期（定年〜60歳）", r=>money(r.zen)],
     ["若年 後期（60歳〜一般職定年）", r=>money(r.ko)],
     ["税金がかからない枠", r=>`<td>${yen(r.rt.ctrl)}<span class="man">税法上の勤続${r.zeiYears}年</span></td>`, "退職所得控除"],
-    ["退職手当などにかかる税金", r=>money(r.rt.total,true), "退職手当＋若年1回目"],
+    ["退職手当から引かれる税金", r=>money(r.rtT.total,true), "所得税＋住民税（調書の「諸控除額計」）"],
+    ["若年1回目から引かれる税金", r=>money(r.rtJ.total,true), "退職手当と合算して計算し、金額の割合で按分"],
     ["若年2回目以降の税金（目安）", r=>money(Math.floor(r.ichijiTax),true), "一時所得"],
     ["手取りの合計（目安）", r=>money(r.net), "", "total"],
   ];
@@ -553,7 +571,7 @@ function render(fromButton){
   $("sched").innerHTML = [A,B].map(r=>`
     <div class="panel" style="gap:6px"><h3 style="margin:0;font-size:14px"><span class="tag">${r.c}</span> ${REASON[r.reason]}・${fmtYM(r.date)}退職</h3>
     ${r.eligible ? `<ol>${r.sched.map(([d,a,w])=>`<li><span class="when">${d.y}.${String(d.m).padStart(2,'0')}</span><span class="what">${w}</span><span class="amt">${yen(a)}円</span></li>`).join("")}</ol>
-      <p class="hint" style="margin:0">60歳到達は「退職年月＋（60−定年年齢）年」で近似。2回目以降は所得により減額あり。</p>`
+      <p class="hint" style="margin:0">${r.birth?'60歳到達は生まれた年月から計算。':'60歳到達は「退職年月＋（60−定年年齢）年」で近似（生まれた年月を入れると正確になります）。'}2回目以降は所得により減額あり。2028年4月以降の退職者は6回払いになる可能性があり、時期と配分は変わることがあります（総額の計算式は同じ見込み）。</p>`
       : `<p class="hint" style="margin:0">若年給付金はありません（${r.reason==='teinen'?'在職20年未満':'定年退職以外は対象外'}）。</p>`}</div>`).join("");
 
   const done=$("done"); done.classList.remove("stale");
@@ -573,10 +591,22 @@ function markStale(){
   $("runState").className = "state stale";
 }
 
+function autoDates(){
+  const b = $("birth").value ? ym($("birth").value) : null;
+  ["A","B"].forEach(c=>{
+    const d=$(c+"_date"), h=$(c+"_dateHint");
+    if(b && $(c+"_reason").value==="teinen"){
+      const t=+$(c+"_teinen").value||56;
+      d.value = `${b.y+t}-${String(b.m).padStart(2,"0")}`;
+      d.readOnly = true;
+      h.textContent = `生まれた年月と定年年齢（${t}歳）から自動で入れています`;
+    }else{ d.readOnly = false; h.textContent = ""; }
+  });
+}
 $("run").onclick = ()=> render(true);
 $("reset").onclick = ()=>{
   IDS.forEach(id=>{ const el=$(id); if(el.type==="checkbox") el.checked=DEFAULTS[id]; else el.value=DEFAULTS[id]; });
-  joRows=[]; kRows=JSON.parse(DEF_K); drawJo(); drawK();
+  joRows=[]; kRows=JSON.parse(DEF_K); drawJo(); drawK(); autoDates();
   try{ localStorage.removeItem(KEY); }catch(e){}
   $("saved").textContent="例の数字に戻しました"; render(false);
   $("h-result").textContent="試算結果"; $("doneSub").textContent="例の数字での試算です。ご自身の数字に書き換えて「試算する」を押してください。";
@@ -584,7 +614,7 @@ $("reset").onclick = ()=>{
 };
 
 const had = load();
-drawJo(); drawK(); render(false);
+drawJo(); drawK(); autoDates(); render(false);
 if(had){ $("h-result").textContent="前回の入力での試算結果"; $("doneSub").textContent="この端末に保存されていた数字で計算しています。"; $("runState").textContent="前回の入力で試算済み"; }
 </script>
 
