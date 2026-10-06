@@ -200,24 +200,24 @@ footer{font-size:12px;color:var(--muted);border-top:1px solid var(--rule);paddin
       <h3><span class="tag">A</span><span>ケースA</span></h3>
       <div class="grid">
         <label for="A_reason"><b>退職の理由</b><select id="A_reason"><option value="jiko" selected>自己都合</option><option value="teinen">定年</option><option value="kansho">勧奨・応募認定</option></select></label>
-        <label for="A_teinen"><b>定年年齢</b><input id="A_teinen" type="number" min="50" max="60" value="56"><span class="hint">現在の法令：1尉〜1曹 56歳、2曹・3曹 55歳。2028年10月以降の退職者は1歳引上げの可能性あり</span></label>
+        <label for="A_teinen" id="A_teinenWrap"><b>定年年齢（定年・勧奨の場合）</b><input id="A_teinen" type="number" min="50" max="65" value="56"><span class="hint">自分の階級の定年年齢を入れてください。現在の法令では1尉〜1曹 56歳、2曹・3曹 55歳など、階級で違います。今後引き上げられる可能性もあるので、人事で確認した年齢や、引上げ後の年齢を入れて比べることもできます</span></label>
         <label for="A_date"><b>退職年月</b><input id="A_date" type="month" value="2027-03"><span class="hint" id="A_dateHint"></span></label>
         <label for="A_hokyu"><b>退職時の俸給月額（円）</b><input id="A_hokyu" type="number" min="0" step="100" value="420000"><span class="hint">給与明細の「俸給」</span></label>
         <label for="A_zei"><b>税法上の勤続年数</b><input id="A_zei" type="number" min="0" step="1" placeholder="空欄＝自動"><span class="hint">支給調書に「税法勤続年」があればその数字。空欄なら自動</span></label>
-        <label class="chk" for="A_soki"><input id="A_soki" type="checkbox"><span>定年前早期退職特例（勧奨・応募認定のみ）</span></label>
-        <label for="A_sokiY"><b>定年までの残年数（特例用）</b><input id="A_sokiY" type="number" min="0" max="15" step="1" value="0"><span class="hint">特例にチェックした場合のみ。1年につき俸給を3%割増</span></label>
+        <label class="chk" for="A_soki" id="A_sokiWrap"><input id="A_soki" type="checkbox"><span>定年前早期退職特例（勧奨・応募認定のみ）</span></label>
+        <label for="A_sokiY" id="A_sokiYWrap"><b>定年までの残年数（特例用）</b><input id="A_sokiY" type="number" min="0" max="15" step="1" value="0"><span class="hint">特例にチェックした場合のみ。1年につき俸給を3%割増</span></label>
       </div>
     </div>
     <div class="panel case" data-case="B">
       <h3><span class="tag">B</span><span>ケースB</span></h3>
       <div class="grid">
         <label for="B_reason"><b>退職の理由</b><select id="B_reason"><option value="jiko">自己都合</option><option value="teinen" selected>定年</option><option value="kansho">勧奨・応募認定</option></select></label>
-        <label for="B_teinen"><b>定年年齢</b><input id="B_teinen" type="number" min="50" max="60" value="57"><span class="hint">56と57を切り替えて比べられます</span></label>
+        <label for="B_teinen" id="B_teinenWrap"><b>定年年齢（定年・勧奨の場合）</b><input id="B_teinen" type="number" min="50" max="65" value="57"><span class="hint">自分の階級の定年年齢を入れてください。現在の法令では1尉〜1曹 56歳、2曹・3曹 55歳など、階級で違います。今後引き上げられる可能性もあるので、人事で確認した年齢や、引上げ後の年齢を入れて比べることもできます</span></label>
         <label for="B_date"><b>退職年月</b><input id="B_date" type="month" value="2029-06"><span class="hint" id="B_dateHint"></span></label>
         <label for="B_hokyu"><b>退職時の俸給月額（円）</b><input id="B_hokyu" type="number" min="0" step="100" value="420000"><span class="hint">昇給が止まっていれば同じ額で</span></label>
         <label for="B_zei"><b>税法上の勤続年数</b><input id="B_zei" type="number" min="0" step="1" placeholder="空欄＝自動"><span class="hint">Aを手入力した場合は、Aの値＋在職が延びた年数を目安に</span></label>
-        <label class="chk" for="B_soki"><input id="B_soki" type="checkbox"><span>定年前早期退職特例（勧奨・応募認定のみ）</span></label>
-        <label for="B_sokiY"><b>定年までの残年数（特例用）</b><input id="B_sokiY" type="number" min="0" max="15" step="1" value="0"><span class="hint">特例にチェックした場合のみ</span></label>
+        <label class="chk" for="B_soki" id="B_sokiWrap"><input id="B_soki" type="checkbox"><span>定年前早期退職特例（勧奨・応募認定のみ）</span></label>
+        <label for="B_sokiY" id="B_sokiYWrap"><b>定年までの残年数（特例用）</b><input id="B_sokiY" type="number" min="0" max="15" step="1" value="0"><span class="hint">特例にチェックした場合のみ</span></label>
       </div>
     </div>
   </div>
@@ -594,6 +594,10 @@ function markStale(){
 function autoDates(){
   const b = $("birth").value ? ym($("birth").value) : null;
   ["A","B"].forEach(c=>{
+    const rs=$(c+"_reason").value;
+    $(c+"_teinenWrap").hidden = rs==="jiko";
+    $(c+"_sokiWrap").hidden = rs!=="kansho";
+    $(c+"_sokiYWrap").hidden = rs!=="kansho";
     const d=$(c+"_date"), h=$(c+"_dateHint");
     if(b && $(c+"_reason").value==="teinen"){
       const t=+$(c+"_teinen").value||56;
