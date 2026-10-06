@@ -60,6 +60,13 @@ input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visi
 .brow{display:grid;grid-template-columns:minmax(0,1fr) 6.5em 2.4em;gap:8px;padding:8px 12px;border-bottom:1px dashed var(--rule);align-items:center}
 .brow .calc{grid-column:1/-1;font-size:12px;color:var(--muted);margin-top:-4px}
 .brow button{padding:6px 0}
+.brow.jo{display:flex;flex-direction:column;gap:8px;align-items:stretch}
+.jo-top{display:flex;gap:8px;align-items:center}
+.jo-top select{flex:1;min-width:0}
+.jo-top button{width:2.4em;flex:none}
+.jo-fields{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(135px,1fr))}
+.jo-fields label{font-size:12px}
+.brow.jo .calc{margin-top:0}
 .bfoot{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 12px}
 .bfoot .hint{flex:1 1 240px}
 details.help{font-size:13px;border-top:1px solid var(--rule)}
@@ -167,7 +174,7 @@ footer{font-size:12px;color:var(--muted);border-top:1px solid var(--rule);paddin
   <div class="builder" id="joBuilder">
     <div class="builder-head"><b>勤続年数から差し引く期間（除算期間）</b><span class="sum" id="joSum">合計 0年0月</span></div>
     <div class="brows" id="joRows"></div>
-    <div class="bfoot"><button type="button" class="add" id="joAdd">＋ 期間を追加</button><span class="hint">該当がなければ空のままで大丈夫です。種類を選ぶと、差し引く割合（全部・1/2・1/3）は自動で計算します。</span></div>
+    <div class="bfoot"><button type="button" class="add" id="joAdd">＋ 期間を追加</button><span class="hint">該当がなければ空のままで大丈夫です。種類を選んで「始まり」と「終わり」の年月を入れるだけで、月数と差し引く割合（全部・1/2・1/3）は自動で計算します。支給調書がある人は「除算期間 計をそのまま入れる」が一番正確です。</span></div>
     <details class="help"><summary>どんな期間が差し引かれる？</summary><div class="in">
       <div class="tablewrap small"><table class="small"><thead><tr><th>期間の種類</th><th>差し引く割合</th></tr></thead><tbody>
         <tr><td class="txt">任期満了金（特例退職手当）を受け取った任期</td><td class="txt">全部。例：2年任期を2回なら48か月</td></tr>
@@ -177,7 +184,7 @@ footer{font-size:12px;color:var(--muted);border-top:1px solid var(--rule);paddin
         <tr><td class="txt">自己啓発等休業・配偶者同行休業</td><td class="txt">1/2</td></tr>
         <tr><td class="txt">停職</td><td class="txt">全部</td></tr>
       </tbody></table></div>
-      <span class="hint">公務上の傷病による休職や、通常の休暇（年休・病休など）は差し引かれません。月数は休んだ月の数で入れてください。根拠：国家公務員退職手当法第7条。</span>
+      <span class="hint">1日でも休んだ月は1か月と数えます（始まりの月と終わりの月も含めます）。育児休業は、子の生年月を入れると、1歳の誕生月までを1/3、それ以降を1/2として自動で分けます。公務上の傷病による休職や、通常の休暇（年休・病休・産前産後休暇など）は差し引かれません。根拠：国家公務員退職手当法第7条。</span>
     </div></details>
   </div>
 
@@ -302,12 +309,14 @@ const KEY = "jsdf-retire-calc-v3";
 
 /* ---------- マスタ ---------- */
 const JO_TYPES = [
-  {v:"tokurei", label:"任期満了金（特例退職手当）を受けた期間", f:1},
-  {v:"ikukyu1", label:"育児休業（子が1歳まで）", f:1/3},
-  {v:"ikukyu2", label:"育児休業（子が1歳を過ぎた分）", f:1/2},
-  {v:"kyushoku", label:"病気などの休職（公務上を除く）", f:1/2},
-  {v:"jikokeihatsu", label:"自己啓発等休業・配偶者同行休業", f:1/2},
-  {v:"teishoku", label:"停職", f:1},
+  {v:"ikukyu", label:"育児休業", mode:"ikukyu"},
+  {v:"tokurei", label:"任期満了金（特例退職手当）を受けた任期", f:1, mode:"range", fromL:"その任期の始まり", toL:"任期満了の月"},
+  {v:"kyushoku", label:"病気などの休職（公務上を除く）", f:1/2, mode:"range"},
+  {v:"jikokeihatsu", label:"自己啓発等休業・配偶者同行休業", f:1/2, mode:"range"},
+  {v:"teishoku", label:"停職", f:1, mode:"range"},
+  {v:"direct", label:"支給調書の「除算期間 計」をそのまま入れる", f:1, mode:"months"},
+  {v:"ikukyu1", label:"（月数で入力）育児休業・子が1歳まで", f:1/3, mode:"months"},
+  {v:"ikukyu2", label:"（月数で入力）育児休業・子が1歳を過ぎた分", f:1/2, mode:"months"},
 ];
 const FRAC = f => f===1 ? "全部" : f===1/2 ? "1/2" : "1/3";
 const RANKS = [
@@ -335,21 +344,47 @@ let joRows = [];           // {type, months}
 let kRows = [{rank:"isso", months:60}];
 const DEF_K = JSON.stringify(kRows);
 
+function cntMonths(a,b){ // 開始月と終了月を含めた月数（1日でも休んだ月は1か月）
+  if(!a||!b||!a.y||!b.y) return 0; const n=(b.y-a.y)*12+(b.m-a.m)+1; return n>0?n:0; }
+function rowCalc(r){
+  const t=JO_TYPES.find(t=>t.v===r.type)||JO_TYPES[0];
+  if(t.mode==="months"){ const m=+r.months||0; return {raw:m, ded:m*t.f, text:`${m}か月 × ${FRAC(t.f)} ＝ ${Math.round(m*t.f*100)/100}か月を差し引き`}; }
+  const a=ym(r.from), b=ym(r.to);
+  if(t.mode==="range"){
+    const m=cntMonths(a,b);
+    return {raw:m, ded:m*t.f, text: m? `${m}か月 × ${FRAC(t.f)} ＝ ${Math.round(m*t.f*100)/100}か月を差し引き` : "始まりと終わりの年月を入れてください"};
+  }
+  // 育児休業：子の1歳の誕生月までは1/3、その後は1/2
+  const m=cntMonths(a,b), c=ym(r.child);
+  if(!m) return {raw:0, ded:0, text:"子の生年月と、育休の始まり・終わりの年月を入れてください"};
+  if(!c.y) return {raw:m, ded:m/3, text:`${m}か月休み → 子の生年月を入れると1歳前後で自動で分けます（今は全部1/3で計算）`};
+  const b1={y:c.y+1,m:c.m};
+  const before = cntMonths(a, (b.y*12+b.m)<(b1.y*12+b1.m)? b : b1);
+  const after = m - before;
+  const ded = before/3 + after/2;
+  return {raw:m, ded, text:`${m}か月（1歳まで${before}か月×1/3＋1歳以降${after}か月×1/2）→ ${Math.round(ded*100)/100}か月を差し引き`};
+}
 function drawJo(){
-  $("joRows").innerHTML = joRows.map((r,i)=>`
-    <div class="brow">
-      <select aria-label="期間の種類" data-jo="${i}" data-k="type">${JO_TYPES.map(t=>`<option value="${t.v}" ${t.v===r.type?'selected':''}>${t.label}</option>`).join("")}</select>
-      <input type="number" min="0" step="1" aria-label="月数" data-jo="${i}" data-k="months" value="${r.months}" placeholder="月数">
-      <button type="button" aria-label="この行を削除" data-jodel="${i}">×</button>
-      <span class="calc" id="joCalc${i}"></span>
-    </div>`).join("") || `<div class="brow"><span class="hint" style="grid-column:1/-1">差し引く期間はありません</span></div>`;
+  $("joRows").innerHTML = joRows.map((r,i)=>{
+    const t=JO_TYPES.find(t=>t.v===r.type)||JO_TYPES[0];
+    const fld=(k,lab,type="month",extra="")=>`<label>${lab}<input type="${type}" ${extra} data-jo="${i}" data-k="${k}" value="${r[k]??""}"></label>`;
+    let f="";
+    if(t.mode==="ikukyu") f=fld("child","子の生年月")+fld("from","育休の始まり")+fld("to","育休の終わり");
+    else if(t.mode==="range") f=fld("from",t.fromL||"始まりの年月")+fld("to",t.toL||"終わりの年月");
+    else f=fld("months","月数","number",'min="0" step="0.01" placeholder="例 58.67"');
+    return `<div class="brow jo">
+      <div class="jo-top"><select aria-label="期間の種類" data-jo="${i}" data-k="type">${JO_TYPES.map(x=>`<option value="${x.v}" ${x.v===t.v?'selected':''}>${x.label}</option>`).join("")}</select>
+      <button type="button" aria-label="この行を削除" data-jodel="${i}">×</button></div>
+      <div class="jo-fields">${f}</div>
+      <span class="calc" id="joCalc${i}"></span></div>`;
+  }).join("") || `<div class="brow"><span class="hint" style="grid-column:1/-1">差し引く期間はありません</span></div>`;
   updateJoSum();
 }
-function joTotal(){ return joRows.reduce((s,r)=> s + (+r.months||0) * (JO_TYPES.find(t=>t.v===r.type)?.f ?? 0.5), 0); }
-function tokureiMonths(){ return joRows.filter(r=>r.type==="tokurei").reduce((s,r)=>s+(+r.months||0),0); }
+function joTotal(){ return joRows.reduce((s,r)=> s + rowCalc(r).ded, 0); }
+function tokureiMonths(){ return joRows.filter(r=>r.type==="tokurei").reduce((s,r)=>s+rowCalc(r).raw,0); }
 function ymFrac(m){ const y=Math.floor(m/12+1e-9); let r=m-y*12; r=Math.round(r*100)/100; return `${y}年${r}月`; }
 function updateJoSum(){
-  joRows.forEach((r,i)=>{ const t=JO_TYPES.find(t=>t.v===r.type); const el=$("joCalc"+i); if(el) el.textContent = `${+r.months||0}か月 × ${FRAC(t.f)} ＝ ${Math.round((+r.months||0)*t.f*100)/100}か月を差し引き`; });
+  joRows.forEach((r,i)=>{ const el=$("joCalc"+i); if(el) el.textContent = rowCalc(r).text; });
   $("joSum").textContent = "合計 " + ymFrac(joTotal());
 }
 
@@ -377,7 +412,7 @@ document.addEventListener("input", e=>{
 });
 document.addEventListener("change", e=>{
   const t=e.target;
-  if(t.dataset.jo!==undefined){ joRows[+t.dataset.jo][t.dataset.k]=t.value; updateJoSum(); }
+  if(t.dataset.jo!==undefined){ joRows[+t.dataset.jo][t.dataset.k]=t.value; if(t.dataset.k==="type") drawJo(); else updateJoSum(); }
   if(t.dataset.kr!==undefined){ kRows[+t.dataset.kr][t.dataset.k]=t.value; updateKSum(); }
   if(t.matches("input,select")){ autoDates(); markStale(); save(); }
 });
@@ -386,7 +421,7 @@ document.addEventListener("click", e=>{
   if(t.dataset.jodel!==undefined){ joRows.splice(+t.dataset.jodel,1); drawJo(); markStale(); save(); }
   if(t.dataset.krdel!==undefined){ kRows.splice(+t.dataset.krdel,1); drawK(); markStale(); save(); }
 });
-$("joAdd").onclick = ()=>{ joRows.push({type:"ikukyu1", months:""}); drawJo(); markStale(); save(); };
+$("joAdd").onclick = ()=>{ joRows.push({type:"ikukyu", child:"", from:"", to:""}); drawJo(); markStale(); save(); };
 $("kAdd").onclick = ()=>{ kRows.push({rank:"socho", months:""}); drawK(); markStale(); save(); };
 
 /* ---------- 保存 ---------- */
